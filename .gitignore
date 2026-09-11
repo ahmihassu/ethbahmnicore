@@ -1,0 +1,27 @@
+# Maven build output
+target/
+**/target/
+
+# OpenMRS packaged module (rebuild with mvn package)
+*.omod
+
+# IDE / editor
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs and local env
+*.log
+.env
+.env.*
