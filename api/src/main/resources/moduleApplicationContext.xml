@@ -4,29 +4,26 @@
 
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xmlns:p="http://www.springframework.org/schema/p"
-       xmlns:context="http://www.springframework.org/schema/context"
-       xmlns:jee="http://www.springframework.org/schema/jee"
-       xmlns:tx="http://www.springframework.org/schema/tx"
-       xmlns:aop="http://www.springframework.org/schema/aop"
-       xmlns:util="http://www.springframework.org/schema/util"
        xsi:schemaLocation="http://www.springframework.org/schema/beans
-  		    http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
-  		    http://www.springframework.org/schema/context
-  		    http://www.springframework.org/schema/context/spring-context-3.0.xsd
-  		    http://www.springframework.org/schema/jee
-  		    http://www.springframework.org/schema/jee/spring-jee-3.0.xsd
-  		    http://www.springframework.org/schema/tx
-  		    http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
-  		    http://www.springframework.org/schema/aop
-  		    http://www.springframework.org/schema/aop/spring-aop-3.0.xsd
-  		    http://www.springframework.org/schema/util
-  		    http://www.springframework.org/schema/util/spring-util-3.0.xsd">
+  		    http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
 
-    <context:component-scan base-package="org.openmrs.module.ethbahmnicore" />
+    <!-- DAOs are wired explicitly rather than component-scanned with @Autowired. By-type injection
+         makes Spring enumerate and instantiate every FactoryBean in the (very large) Bahmni context
+         while the module context refreshes, which stalls OpenMRS startup. -->
+    <bean id="ethbahmnicore.EthioBahmniCoreDao"
+            class="org.openmrs.module.ethbahmnicore.api.dao.EthioBahmniCoreDao">
+        <property name="sessionFactory" ref="dbSessionFactory" />
+    </bean>
 
-    <!-- Wraps EthioBahmniCoreService methods in DB transactions and OpenMRS interceptors,
-    which set audit info like dateCreated, changedBy, etc.-->
+    <bean id="ethbahmnicore.CbhiLocationDao" class="org.openmrs.module.ethbahmnicore.api.dao.CbhiLocationDao">
+        <property name="sessionFactory" ref="dbSessionFactory" />
+    </bean>
+
+    <!-- CbhiLocation is registered with the core session factory through
+         <packagesWithMappedClasses> in config.xml. Defining a child of the sessionFactory bean here
+         would build a second SessionFactory and hang OpenMRS startup. -->
+
+    <!-- Wraps EthioBahmniCoreService methods in DB transactions and OpenMRS interceptors -->
     <bean id="ethbahmnicore.EthioBahmniCoreService"
             class="org.springframework.transaction.interceptor.TransactionProxyFactoryBean">
         <property name="transactionManager">
@@ -45,13 +42,38 @@
         </property>
     </bean>
 
-    <!-- Adds EthioBahmniCoreService to OpenMRS context so it can be accessed
-    calling Context.getService(EthioBahmniCoreService.class) -->
     <bean parent="serviceContext">
         <property name="moduleService">
             <list>
                 <value>org.openmrs.module.ethbahmnicore.api.EthioBahmniCoreService</value>
                 <ref bean="ethbahmnicore.EthioBahmniCoreService" />
+            </list>
+        </property>
+    </bean>
+
+    <bean id="ethbahmnicore.CbhiLocationService"
+            class="org.springframework.transaction.interceptor.TransactionProxyFactoryBean">
+        <property name="transactionManager">
+            <ref bean="transactionManager" />
+        </property>
+        <property name="target">
+            <bean class="org.openmrs.module.ethbahmnicore.api.impl.CbhiLocationServiceImpl">
+                <property name="dao" ref="ethbahmnicore.CbhiLocationDao" />
+            </bean>
+        </property>
+        <property name="preInterceptors">
+            <ref bean="serviceInterceptors" />
+        </property>
+        <property name="transactionAttributeSource">
+            <ref bean="transactionAttributeSource" />
+        </property>
+    </bean>
+
+    <bean parent="serviceContext">
+        <property name="moduleService">
+            <list>
+                <value>org.openmrs.module.ethbahmnicore.api.CbhiLocationService</value>
+                <ref bean="ethbahmnicore.CbhiLocationService" />
             </list>
         </property>
     </bean>

@@ -102,5 +102,25 @@
 
     <properties>
         <openmrsPlatformVersion>2.1.7</openmrsPlatformVersion>
+        <webservicesRestVersion>2.26.0</webservicesRestVersion>
+        <javaCompilerSource>1.8</javaCompilerSource>
+        <javaCompilerTarget>1.8</javaCompilerTarget>
     </properties>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.openmrs.module</groupId>
+				<artifactId>webservices.rest-omod-common</artifactId>
+				<version>${webservicesRestVersion}</version>
+				<scope>provided</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.openmrs.module</groupId>
+				<artifactId>webservices.rest-omod</artifactId>
+				<version>${webservicesRestVersion}</version>
+				<scope>provided</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 </project>

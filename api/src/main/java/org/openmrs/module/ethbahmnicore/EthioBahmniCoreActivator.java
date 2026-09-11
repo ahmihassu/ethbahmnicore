@@ -14,7 +14,11 @@ import org.apache.commons.logging.LogFactory;
 import org.openmrs.module.BaseModuleActivator;
 
 /**
- * This class contains the logic that is run every time this module is either started or shutdown
+ * This class contains the logic that is run every time this module is either started or shutdown.
+ * <p>
+ * CBHI hierarchy seeding is intentionally not done here: importing the packaged CSV (~900 rows)
+ * during module start blocks OpenMRS startup on typical Bahmni/Vagrant hosts. Use
+ * {@code POST /ws/rest/v1/ethbahmnicore/cbhiLocation/import} after the system is up.
  */
 public class EthioBahmniCoreActivator extends BaseModuleActivator {
 	

@@ -1,50 +1,121 @@
-${moduleName}
-==========================
+# Ethio Bahmni Core (ethbahmnicore)
 
-Description
------------
-This is a very basic module which can be used as a starting point in creating a new module.
+OpenMRS / Bahmni backend module for Ethiopia-specific features. Currently provides a **CBHI location hierarchy** (Region → Zone → Woreda) that is **separate from** patient residential Address Hierarchy / `person_address`.
 
-Building from Source
---------------------
-You will need to have Java 1.6+ and Maven 2.x+ installed.  Use the command 'mvn package' to 
-compile and package the module.  The .omod file will be in the omod/target folder.
+Target platform: **Bahmni 0.93 / OpenMRS 2.1.7 / Java 8**.
 
-Alternatively you can add the snippet provided in the [Creating Modules](https://wiki.openmrs.org/x/cAEr) page to your 
-omod/pom.xml and use the mvn command:
+## Build & deploy
 
-    mvn package -P deploy-web -D deploy.path="../../openmrs-1.8.x/webapp/src/main/webapp"
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+mvn clean package
+```
 
-It will allow you to deploy any changes to your web 
-resources such as jsp or js files without re-installing the module. The deploy path says 
-where OpenMRS is deployed.
+Install the omod:
 
-Running Spotless
-----------------
-This project uses Spotless for code formatting. Spotless is embedded in the build process, so when you run `mvn clean package`, Spotless will automatically format your code according to the project's style guidelines.
+- `omod/target/ethbahmnicore-1.0.0-SNAPSHOT.omod` → OpenMRS *Administration → Manage Modules*, or  
+- copy into the OpenMRS modules directory and restart.
 
-If you want to run Spotless separately, you can use the following Maven commands:
+Requires module: `webservices.rest`.
 
-To apply the formatting:
+## Person attributes (registration contract)
 
-    mvn spotless:apply
+When PaymentMethod = Credit and Credit Information = CBHI, registration should capture CBHI geography as **person attributes** (string names must match exactly):
 
-This will automatically format your code according to the project's style guidelines. It's recommended to run this command before committing your changes.
+| Attribute name   | Format           | Created by                          |
+|------------------|------------------|-------------------------------------|
+| CBHI ID          | String           | Already in DB                       |
+| CBHIExpiryDate   | Date             | Already in DB                       |
+| CBHI Region      | String           | Liquibase in this module (if missing) |
+| CBHI Zone        | String           | Liquibase in this module (if missing) |
+| CBHI Woreda      | String           | Liquibase in this module (if missing) |
 
-To check if your code adheres to the style guidelines without making any changes, you can run:
+Frontend should write selected display names onto the patient object, e.g. `patient["CBHI Region"]`, `patient["CBHI Zone"]`, `patient["CBHI Woreda"]` (same pattern as other Bahmni person attributes). Do **not** write these into Address Hierarchy / `person_address`.
 
-    mvn spotless:check
+Suggested `default_config` placement: `CBHIInformation` section (shown via existing `attributesConditions` for Credit + CBHI).
 
-If this command reports any violations, you can then run `mvn spotless:apply` to fix them.
+## REST contract
 
-Remember, in most cases, you don't need to run these commands separately as Spotless will run automatically during the build process with `mvn clean package`.
+Base path: `/openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation`
 
-Installation
-------------
-1. Build the module to produce the .omod file.
-2. Use the OpenMRS Administration > Manage Modules screen to upload and install the .omod file.
+### Search / cascade
 
-If uploads are not allowed from the web (changable via a runtime property), you can drop the omod
-into the ~/.OpenMRS/modules folder.  (Where ~/.OpenMRS is assumed to be the Application 
-Data Directory that the running openmrs is currently using.)  After putting the file in there 
-simply restart OpenMRS/tomcat and the module will be loaded and started.
+`GET /openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation`
+
+| Param        | Required | Description |
+|--------------|----------|-------------|
+| `parentUuid` | no       | Parent location uuid. Omit / empty for root **regions**. |
+| `level`      | no       | `REGION` \| `ZONE` \| `WOREDA` |
+| `q`          | no       | Case-insensitive name contains search |
+
+Response:
+
+```json
+{
+  "results": [
+    {
+      "uuid": "…",
+      "name": "AFAR",
+      "display": "AFAR",
+      "level": "REGION",
+      "parentUuid": null
+    }
+  ]
+}
+```
+
+Cascading UI flow (same idea as Bahmni top-down address fields):
+
+1. Regions: `GET .../cbhiLocation` (or `?level=REGION`)
+2. Zones: `GET .../cbhiLocation?parentUuid=<regionUuid>`
+3. Woredas: `GET .../cbhiLocation?parentUuid=<zoneUuid>`
+4. Optional filter: add `&q=aba`
+
+Examples:
+
+```bash
+# All CBHI regions
+curl -u admin:password \
+  'http://localhost/openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation'
+
+# Zones under a region
+curl -u admin:password \
+  'http://localhost/openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation?parentUuid=<region-uuid>'
+
+# Search woredas by name within a zone
+curl -u admin:password \
+  'http://localhost/openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation?parentUuid=<zone-uuid>&q=ada'
+```
+
+### Import hierarchy
+
+Packaged CSV: `classpath:cbhi/cbhi_locations.csv` (~12 regions, ~83 zones, ~826 woredas).
+
+**Do not rely on module startup to seed data** — importing on start blocks OpenMRS (especially on Vagrant). After the module is running, import once:
+
+```bash
+# Import only if empty
+curl -u admin:password -X POST \
+  'http://localhost/openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation/import'
+
+# Wipe and reload from packaged CSV
+curl -u admin:password -X POST \
+  'http://localhost/openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation/import?replace=true'
+```
+
+Requires privilege: `Ethio Bahmni Core Privilege`.
+
+## Regenerating CSV from Excel
+
+Source workbook (not in git): `../01-01-2017R.xlsx`, sheet `WEREDE AND ZONE LIST`.
+
+```bash
+python3 scripts/excel_to_cbhi_csv.py /path/to/01-01-2017R.xlsx
+```
+
+Names are stored as in the spreadsheet (underscores, punctuation, quirks). They are **not** mapped to patient Address Hierarchy names.
+
+## What this module does / does not do
+
+- **Does:** CBHI hierarchy table, liquibase person attribute types, REST cascade/search, CSV import.
+- **Does not:** Change Address Hierarchy, `person_address`, or bahmnicore. Frontend (`bahmniapps` directive + `default_config`) is out of scope here.

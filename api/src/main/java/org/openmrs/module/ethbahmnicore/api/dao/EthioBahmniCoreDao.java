@@ -13,14 +13,14 @@ import org.hibernate.criterion.Restrictions;
 import org.openmrs.api.db.hibernate.DbSession;
 import org.openmrs.api.db.hibernate.DbSessionFactory;
 import org.openmrs.module.ethbahmnicore.Item;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Repository;
 
-@Repository("ethbahmnicore.EthioBahmniCoreDao")
 public class EthioBahmniCoreDao {
 	
-	@Autowired
-	DbSessionFactory sessionFactory;
+	private DbSessionFactory sessionFactory;
+	
+	public void setSessionFactory(DbSessionFactory sessionFactory) {
+		this.sessionFactory = sessionFactory;
+	}
 	
 	private DbSession getSession() {
 		return sessionFactory.getCurrentSession();

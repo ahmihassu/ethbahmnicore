@@ -1,39 +1,115 @@
 <?xml version="1.0" encoding="UTF-8"?>
- 
+
 <databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog/1.9"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog/1.9
                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-1.9.xsd">
- 
-    <!--
-    	See http://wiki.openmrs.org/display/docs/Module+liquibase+File for 
-    	documentation on this file.
-    
-        See http://www.liquibase.org/manual/home#available_database_refactorings
-        for a list of supported elements and attributes
-    -->
- 
- 	<!-- Uncomment the changeset below if you want to make the Item class persistable, see also Item and EthioBahmniCoreDaoTest -->
- 	<!--
-	<changeSet id="ethbahmnicore-2016-08-02-12-21" author="raff">
+
+	<!-- CBHI geography hierarchy (separate from OpenMRS Address Hierarchy / person_address) -->
+	<changeSet id="ethbahmnicore-2026-09-03-cbhi-location-table" author="ethbahmnicore">
 		<preConditions onFail="MARK_RAN">
-			<not><tableExists tableName="ethbahmnicore_item"/></not>
+			<not><tableExists tableName="ethbahmnicore_cbhi_location"/></not>
 		</preConditions>
-		<comment>
-			Creating the ethbahmnicore_item table
-		</comment>
-		<createTable tableName="ethbahmnicore_item">
-			<column name="ethbahmnicore_item_id" type="int" autoIncrement="true">
+		<comment>Creating ethbahmnicore_cbhi_location for CBHI Region/Zone/Woreda hierarchy</comment>
+		<createTable tableName="ethbahmnicore_cbhi_location">
+			<column name="cbhi_location_id" type="int" autoIncrement="true">
 				<constraints primaryKey="true" nullable="false"/>
 			</column>
-			<column name="uuid" type="char(38)">
-				<constraints nullable="false" unique="true"></constraints>
+			<column name="name" type="varchar(255)">
+				<constraints nullable="false"/>
 			</column>
-			<column name="owner" type="int" />
-			<column name="description" type="varchar(255)" />
+			<column name="level" type="varchar(50)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="parent_id" type="int"/>
+			<column name="uuid" type="char(38)">
+				<constraints nullable="false" unique="true"/>
+			</column>
+			<column name="creator" type="int">
+				<constraints nullable="false"/>
+			</column>
+			<column name="date_created" type="datetime">
+				<constraints nullable="false"/>
+			</column>
+			<column name="changed_by" type="int"/>
+			<column name="date_changed" type="datetime"/>
+			<column name="voided" type="boolean" defaultValueBoolean="false">
+				<constraints nullable="false"/>
+			</column>
+			<column name="voided_by" type="int"/>
+			<column name="date_voided" type="datetime"/>
+			<column name="void_reason" type="varchar(255)"/>
 		</createTable>
-        <addForeignKeyConstraint constraintName="ethbahmnicore_item_owner_fk" baseTableName="ethbahmnicore_item" baseColumnNames="owner"  referencedTableName="users"
-                                 referencedColumnNames="user_id" />
-    </changeSet> -->
- 
+		<addForeignKeyConstraint constraintName="ethbahmnicore_cbhi_location_parent_fk"
+		                         baseTableName="ethbahmnicore_cbhi_location" baseColumnNames="parent_id"
+		                         referencedTableName="ethbahmnicore_cbhi_location"
+		                         referencedColumnNames="cbhi_location_id"/>
+		<addForeignKeyConstraint constraintName="ethbahmnicore_cbhi_location_creator_fk"
+		                         baseTableName="ethbahmnicore_cbhi_location" baseColumnNames="creator"
+		                         referencedTableName="users" referencedColumnNames="user_id"/>
+		<createIndex tableName="ethbahmnicore_cbhi_location" indexName="ethbahmnicore_cbhi_location_parent_idx">
+			<column name="parent_id"/>
+		</createIndex>
+		<createIndex tableName="ethbahmnicore_cbhi_location" indexName="ethbahmnicore_cbhi_location_level_idx">
+			<column name="level"/>
+		</createIndex>
+		<createIndex tableName="ethbahmnicore_cbhi_location" indexName="ethbahmnicore_cbhi_location_name_idx">
+			<column name="name"/>
+		</createIndex>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-03-cbhi-region-attr" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM person_attribute_type WHERE name = 'CBHI Region'</sqlCheck>
+		</preConditions>
+		<comment>Person attribute type: CBHI Region</comment>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="CBHI Region"/>
+			<column name="description" value="CBHI insurance Region (separate from residential address)"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e001"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-03-cbhi-zone-attr" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM person_attribute_type WHERE name = 'CBHI Zone'</sqlCheck>
+		</preConditions>
+		<comment>Person attribute type: CBHI Zone</comment>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="CBHI Zone"/>
+			<column name="description" value="CBHI insurance Zone (separate from residential address)"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e002"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-03-cbhi-woreda-attr" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM person_attribute_type WHERE name = 'CBHI Woreda'</sqlCheck>
+		</preConditions>
+		<comment>Person attribute type: CBHI Woreda</comment>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="CBHI Woreda"/>
+			<column name="description" value="CBHI insurance Woreda (separate from residential address)"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e003"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+	</changeSet>
+
 </databaseChangeLog>
