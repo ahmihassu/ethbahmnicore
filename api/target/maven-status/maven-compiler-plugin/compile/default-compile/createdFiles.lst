@@ -1,6 +1,0 @@
-org/openmrs/module/ethbahmnicore/Item.class
-org/openmrs/module/ethbahmnicore/api/impl/EthioBahmniCoreServiceImpl.class
-org/openmrs/module/ethbahmnicore/EthioBahmniCoreActivator.class
-org/openmrs/module/ethbahmnicore/api/EthioBahmniCoreService.class
-org/openmrs/module/ethbahmnicore/EthioBahmniCoreConfig.class
-org/openmrs/module/ethbahmnicore/api/dao/EthioBahmniCoreDao.class

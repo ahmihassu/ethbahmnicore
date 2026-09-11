@@ -10,9 +10,8 @@
 package org.openmrs.module.ethbahmnicore;
 
 /**
- * Contains module's config.
+ * Levels in the CBHI geography hierarchy (separate from patient Address Hierarchy).
  */
-public class EthioBahmniCoreConfig {
-	
-	public final static String MODULE_PRIVILEGE = "Ethio Bahmni Core Privilege";
+public enum CbhiLocationLevel {
+	REGION, ZONE, WOREDA
 }
