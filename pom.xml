@@ -101,7 +101,10 @@
 
 
     <properties>
-        <openmrsPlatformVersion>2.1.7</openmrsPlatformVersion>
+        <!-- Compile/require against oldest hospital stack we support (OpenMRS 2.1.1). -->
+        <openmrsPlatformVersion>2.1.1</openmrsPlatformVersion>
+        <!-- Compile against a modern REST jar; do not pin require_module to this version
+             (hospital Bahmni often ships older webservices.rest). -->
         <webservicesRestVersion>2.26.0</webservicesRestVersion>
         <javaCompilerSource>1.8</javaCompilerSource>
         <javaCompilerTarget>1.8</javaCompilerTarget>
