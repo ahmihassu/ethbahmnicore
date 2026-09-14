@@ -1,8 +1,23 @@
 # Ethio Bahmni Core (ethbahmnicore)
 
-OpenMRS / Bahmni backend module for Ethiopia-specific features. Currently provides a **CBHI location hierarchy** (Region → Zone → Woreda) that is **separate from** patient residential Address Hierarchy / `person_address`.
+OpenMRS / Bahmni backend module for Ethiopia-specific features:
+
+1. **CBHI location hierarchy** (Region → Zone → Woreda), separate from patient residential Address Hierarchy.
+2. **MRU / Registration Fee eligibility** against Odoo invoices for the current payment window (Cash / Free / Credit rules).
 
 Target platform: **Bahmni 0.93 / OpenMRS 2.1.7 / Java 8**.
+
+## Package layout
+
+Feature-oriented packages (similar spirit to bahmnicore):
+
+```
+org.openmrs.module.ethbahmnicore
+  cbhi/                 # CBHI geography model, dao, service, importer
+  registrationfee/      # eligibility contract, Odoo client, service, advice
+  scaffold/             # archetype Item sample (legacy)
+  web/v1_0/controller/  # REST controllers
+```
 
 ## Build & deploy
 
@@ -18,7 +33,146 @@ Install the omod:
 
 Requires module: `webservices.rest`.
 
-## Person attributes (registration contract)
+---
+
+## Registration Fee / MRU payment eligibility
+
+### Business rules
+
+After a visit exists and a Registration Fee (MRU) order/invoice has been created, clinical and other services must not proceed unless the patient has a **valid MRU invoice for the current payment window**.
+
+| Payment method | Allowed when Odoo `account.invoice` … |
+|----------------|----------------------------------------|
+| **Cash** | `state = paid` |
+| **Free** | `state = paid` (Free is recorded as paid with 100% discount in Odoo) |
+| **Credit** | invoice exists and `state = open` (fee collected later; do **not** require paid) |
+
+Important:
+
+- Validity is for the **current payment window only** — not any historical paid MRU.
+- Free / Credit are **not** OpenMRS-side exemptions. Cashiers confirm them in Odoo; OpenMRS verifies invoice state there.
+- Draft sale orders (atomfeed sync before cashier confirm) do **not** count — there must be an invoice.
+- This module does **not** use bahmnicore `/paymentstatus` or `bahmni.sqlGet.orderUuid`.
+
+### Config
+
+#### OpenMRS global properties (non-secrets)
+
+| Property | Default | Meaning |
+|----------|---------|---------|
+| `ethbahmnicore.enforceRegistrationFee` | `false` | When `true`, deny clinical encounter/order writes without valid MRU payment |
+| `ethbahmnicore.registrationFee.paymentWindowDays` | `30` | Current window length (days) |
+| `ethbahmnicore.odoo.host` | `localhost` | Odoo host |
+| `ethbahmnicore.odoo.port` | `8069` | Odoo XML-RPC port |
+| `ethbahmnicore.odoo.database` | `odoo` | Odoo DB name |
+| `ethbahmnicore.registrationFee.shopName` | `MRU` | Odoo `sale.shop` name |
+| `ethbahmnicore.registrationFee.productNames` | `Regular Registration Fee,Emergency Registration Fee` | Fee product/concept names |
+| `ethbahmnicore.registrationFee.orderTypeName` | `Registration Fee` | Order type allowed without eligibility |
+| `ethbahmnicore.registrationFee.allowedEncounterTypes` | `REG,Registration` | Encounter types allowed without eligibility (Bahmni uses `REG`) |
+
+#### Environment variables (secrets)
+
+Set on the OpenMRS / Tomcat process — **not** in global properties:
+
+| Variable | Meaning |
+|----------|---------|
+| `ETHBAHMNICORE_ODOO_USER` | Odoo XML-RPC username (**read-only** technical user; do not use `admin`) |
+| `ETHBAHMNICORE_ODOO_PASSWORD` | Odoo XML-RPC password |
+
+Example (systemd / setenv):
+
+```bash
+export ETHBAHMNICORE_ODOO_USER=mru_fee_reader
+export ETHBAHMNICORE_ODOO_PASSWORD='…'
+```
+
+#### Frontend app config (for later UI migration)
+
+Replace the old dual flags (`disable billing` / `disable checking`) with:
+
+```json
+"paymentConfig": {
+  "enforceRegistrationFee": true,
+  "payment window": 30
+}
+```
+
+- UI should call the eligibility API below when `enforceRegistrationFee` is true.
+- Backend enforcement is driven by the OpenMRS GP `ethbahmnicore.enforceRegistrationFee` (source of truth for hard deny). Keep app config and GP aligned.
+
+### REST contract
+
+`GET /openmrs/ws/rest/v1/ethbahmnicore/registrationFee/eligibility`
+
+| Param | Required |
+|-------|----------|
+| `patientUuid` **or** `identifier` | one required |
+
+Example response:
+
+```json
+{
+  "allowed": true,
+  "status": "CASH_PAID_OK",
+  "reason": "Cash invoice is paid",
+  "paymentMethod": "Cash",
+  "invoiceId": 1234,
+  "invoiceState": "paid",
+  "windowDays": 30,
+  "windowStart": "2026-08-15",
+  "windowEnd": "2026-09-13",
+  "enforceRegistrationFee": true,
+  "patientUuid": "…",
+  "identifier": "GAN200000"
+}
+```
+
+Status codes include: `CASH_PAID_OK`, `FREE_PAID_OK`, `CREDIT_OPEN_OK`, `CASH_UNPAID`, `FREE_UNPAID`, `CREDIT_MISSING_OR_CLOSED`, `NO_INVOICE`, `OUTSIDE_WINDOW`, `ENFORCEMENT_DISABLED`, `PATIENT_NOT_FOUND`, `ODOO_UNAVAILABLE`, `ODOO_NOT_CONFIGURED`, `UNKNOWN_PAYMENT_METHOD`.
+
+```bash
+curl -u admin:password \
+  'http://localhost/openmrs/ws/rest/v1/ethbahmnicore/registrationFee/eligibility?patientUuid=<uuid>'
+
+curl -u admin:password \
+  'http://localhost/openmrs/ws/rest/v1/ethbahmnicore/registrationFee/eligibility?identifier=GAN200000'
+```
+
+### What is blocked vs allowed (when `enforceRegistrationFee=true`)
+
+| Operation | Behaviour |
+|-----------|-----------|
+| **Visit** create / start / end | **Allowed** (visit triggers Registration Fee billing) |
+| Encounter / order for **Registration Fee** (order type / fee concepts / allowed encounter types) | **Allowed** |
+| Other **encounter** saves (clinical consultation, obs, non-fee orders) | **Denied** if no valid MRU invoice |
+| Other **order** saves (lab, drug, radiology, etc.) | **Denied** if no valid MRU invoice |
+
+When enforce is `false`, APIs still evaluate when possible but always return `allowed=true` with status `ENFORCEMENT_DISABLED`; advice does not deny.
+
+When enforce is `true` and Odoo is unreachable / unconfigured → **fail closed** (`ODOO_UNAVAILABLE` / `ODOO_NOT_CONFIGURED`).
+
+### Odoo read-only user (recommended privileges)
+
+Create a dedicated internal user (example login `mru_fee_reader`). Do **not** use `admin`.
+
+**Minimum access**
+
+1. Group: **Internal User** / **Employees / Employee** (`base.group_user`) so XML-RPC login works and related `sale.shop` fields on invoices are readable.
+2. Group: **Accounting & Finance / Billing** (`account.group_account_invoice`) so `account.invoice` can be searched.
+3. **Read** access (Access Rights / `ir.model.access`) on:
+   - `res.partner` — find patient by `uuid` / `ref`
+   - `account.invoice` — invoice `state`, `payment_method`, `date_invoice`, `shop_id`, `partner_id`, `patient_partner_id`
+   - `sale.shop` — filter `shop_id.name = MRU` (often covered by Employee)
+   - optionally `account.invoice.line` / `product.product` if you later tighten product filters
+
+Without Billing, Odoo returns an ACL fault that ethbahmnicore maps to `ODOO_UNAVAILABLE`. Without Employee, filtering by `shop_id.name` fails the same way.
+
+Set `ETHBAHMNICORE_ODOO_USER` / `ETHBAHMNICORE_ODOO_PASSWORD` to that user.
+
+Invoice lookup axes: patient partner (`uuid` or `ref`) + shop `MRU` + `date_invoice` in window + Cash/Free/Credit state rules. Credit invoices may bill a payer partner; patient is matched via `patient_partner_id`.
+
+---
+
+## Person attributes (CBHI registration contract)
 
 When PaymentMethod = Credit and Credit Information = CBHI, registration should capture CBHI geography as **person attributes** (string names must match exactly):
 
@@ -30,11 +184,9 @@ When PaymentMethod = Credit and Credit Information = CBHI, registration should c
 | CBHI Zone        | String           | Liquibase in this module (if missing) |
 | CBHI Woreda      | String           | Liquibase in this module (if missing) |
 
-Frontend should write selected display names onto the patient object, e.g. `patient["CBHI Region"]`, `patient["CBHI Zone"]`, `patient["CBHI Woreda"]` (same pattern as other Bahmni person attributes). Do **not** write these into Address Hierarchy / `person_address`.
+Frontend should write selected display names onto the patient object, e.g. `patient["CBHI Region"]`, `patient["CBHI Zone"]`, `patient["CBHI Woreda"]`. Do **not** write these into Address Hierarchy / `person_address`.
 
-Suggested `default_config` placement: `CBHIInformation` section (shown via existing `attributesConditions` for Credit + CBHI).
-
-## REST contract
+## CBHI REST contract
 
 Base path: `/openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation`
 
@@ -48,74 +200,27 @@ Base path: `/openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation`
 | `level`      | no       | `REGION` \| `ZONE` \| `WOREDA` |
 | `q`          | no       | Case-insensitive name contains search |
 
-Response:
-
-```json
-{
-  "results": [
-    {
-      "uuid": "…",
-      "name": "AFAR",
-      "display": "AFAR",
-      "level": "REGION",
-      "parentUuid": null
-    }
-  ]
-}
-```
-
-Cascading UI flow (same idea as Bahmni top-down address fields):
-
-1. Regions: `GET .../cbhiLocation` (or `?level=REGION`)
-2. Zones: `GET .../cbhiLocation?parentUuid=<regionUuid>`
-3. Woredas: `GET .../cbhiLocation?parentUuid=<zoneUuid>`
-4. Optional filter: add `&q=aba`
-
-Examples:
-
 ```bash
-# All CBHI regions
 curl -u admin:password \
   'http://localhost/openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation'
-
-# Zones under a region
-curl -u admin:password \
-  'http://localhost/openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation?parentUuid=<region-uuid>'
-
-# Search woredas by name within a zone
-curl -u admin:password \
-  'http://localhost/openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation?parentUuid=<zone-uuid>&q=ada'
 ```
 
 ### Import hierarchy
 
-Packaged CSV: `classpath:cbhi/cbhi_locations.csv` (~12 regions, ~83 zones, ~826 woredas).
-
-**Do not rely on module startup to seed data** — importing on start blocks OpenMRS (especially on Vagrant). After the module is running, import once:
-
 ```bash
-# Import only if empty
 curl -u admin:password -X POST \
   'http://localhost/openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation/import'
-
-# Wipe and reload from packaged CSV
-curl -u admin:password -X POST \
-  'http://localhost/openmrs/ws/rest/v1/ethbahmnicore/cbhiLocation/import?replace=true'
 ```
 
 Requires privilege: `Ethio Bahmni Core Privilege`.
 
-## Regenerating CSV from Excel
-
-Source workbook (not in git): `../01-01-2017R.xlsx`, sheet `WEREDE AND ZONE LIST`.
+## Regenerating CBHI CSV from Excel
 
 ```bash
 python3 scripts/excel_to_cbhi_csv.py /path/to/01-01-2017R.xlsx
 ```
 
-Names are stored as in the spreadsheet (underscores, punctuation, quirks). They are **not** mapped to patient Address Hierarchy names.
-
 ## What this module does / does not do
 
-- **Does:** CBHI hierarchy table, liquibase person attribute types, REST cascade/search, CSV import.
-- **Does not:** Change Address Hierarchy, `person_address`, or bahmnicore. Frontend (`bahmniapps` directive + `default_config`) is out of scope here.
+- **Does:** CBHI hierarchy; MRU registration-fee eligibility API; optional hard enforcement on encounter/order saves; Odoo invoice lookup for current window.
+- **Does not:** Modify bahmnicore; use bahmnicore `paymentstatus`; block visit creation; treat Free/Credit as OpenMRS-only exemptions; accept historical MRU outside the window; change frontend bahmniapps (API is ready for UI migration).

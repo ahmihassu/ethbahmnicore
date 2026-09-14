@@ -35,6 +35,64 @@
 
 	<!-- Annotated entities (CbhiLocation) added to the core Hibernate session factory -->
 	<packagesWithMappedClasses>org.openmrs.module.ethbahmnicore</packagesWithMappedClasses>
+
+	<!-- Hard enforcement: block clinical encounter/order writes without valid MRU payment.
+	     VisitService is intentionally NOT advised — visit create must remain allowed. -->
+	<advice>
+		<point>org.openmrs.api.EncounterService</point>
+		<class>org.openmrs.module.ethbahmnicore.registrationfee.advice.RegistrationFeeEncounterAdvice</class>
+	</advice>
+	<advice>
+		<point>org.openmrs.api.OrderService</point>
+		<class>org.openmrs.module.ethbahmnicore.registrationfee.advice.RegistrationFeeOrderAdvice</class>
+	</advice>
+
+	<!-- Non-secret registration-fee / Odoo connection settings (credentials via env vars) -->
+	<globalProperty>
+		<property>ethbahmnicore.enforceRegistrationFee</property>
+		<defaultValue>false</defaultValue>
+		<description>When true, ethbahmnicore denies clinical encounter/order writes without a valid MRU Registration Fee invoice for the current payment window</description>
+	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.registrationFee.paymentWindowDays</property>
+		<defaultValue>30</defaultValue>
+		<description>Payment window length in days for MRU / Registration Fee eligibility</description>
+	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.odoo.host</property>
+		<defaultValue>localhost</defaultValue>
+		<description>Odoo hostname for registration-fee invoice lookup (non-secret)</description>
+	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.odoo.port</property>
+		<defaultValue>8069</defaultValue>
+		<description>Odoo XML-RPC port</description>
+	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.odoo.database</property>
+		<defaultValue>odoo</defaultValue>
+		<description>Odoo database name</description>
+	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.registrationFee.shopName</property>
+		<defaultValue>MRU</defaultValue>
+		<description>Odoo sale.shop name for Registration Fee invoices</description>
+	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.registrationFee.productNames</property>
+		<defaultValue>Regular Registration Fee,Emergency Registration Fee</defaultValue>
+		<description>Comma-separated OpenMRS/Odoo product concept names treated as Registration Fee</description>
+	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.registrationFee.orderTypeName</property>
+		<defaultValue>Registration Fee</defaultValue>
+		<description>OpenMRS order type name allowed without eligibility (billing flow)</description>
+	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.registrationFee.allowedEncounterTypes</property>
+		<defaultValue>REG,Registration</defaultValue>
+		<description>Comma-separated encounter type names allowed without eligibility (billing flow). Bahmni uses REG.</description>
+	</globalProperty>
 	
 	<!-- Internationalization -->
 	<!-- All message codes should start with @MODULE_ID@.* -->

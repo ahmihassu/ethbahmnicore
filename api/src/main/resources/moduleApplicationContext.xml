@@ -11,11 +11,11 @@
          makes Spring enumerate and instantiate every FactoryBean in the (very large) Bahmni context
          while the module context refreshes, which stalls OpenMRS startup. -->
     <bean id="ethbahmnicore.EthioBahmniCoreDao"
-            class="org.openmrs.module.ethbahmnicore.api.dao.EthioBahmniCoreDao">
+            class="org.openmrs.module.ethbahmnicore.scaffold.dao.EthioBahmniCoreDao">
         <property name="sessionFactory" ref="dbSessionFactory" />
     </bean>
 
-    <bean id="ethbahmnicore.CbhiLocationDao" class="org.openmrs.module.ethbahmnicore.api.dao.CbhiLocationDao">
+    <bean id="ethbahmnicore.CbhiLocationDao" class="org.openmrs.module.ethbahmnicore.cbhi.dao.CbhiLocationDao">
         <property name="sessionFactory" ref="dbSessionFactory" />
     </bean>
 
@@ -30,7 +30,7 @@
             <ref bean="transactionManager" />
         </property>
         <property name="target">
-            <bean class="org.openmrs.module.ethbahmnicore.api.impl.EthioBahmniCoreServiceImpl">
+            <bean class="org.openmrs.module.ethbahmnicore.scaffold.service.impl.EthioBahmniCoreServiceImpl">
                 <property name="dao" ref="ethbahmnicore.EthioBahmniCoreDao" />
             </bean>
         </property>
@@ -45,7 +45,7 @@
     <bean parent="serviceContext">
         <property name="moduleService">
             <list>
-                <value>org.openmrs.module.ethbahmnicore.api.EthioBahmniCoreService</value>
+                <value>org.openmrs.module.ethbahmnicore.scaffold.service.EthioBahmniCoreService</value>
                 <ref bean="ethbahmnicore.EthioBahmniCoreService" />
             </list>
         </property>
@@ -57,7 +57,7 @@
             <ref bean="transactionManager" />
         </property>
         <property name="target">
-            <bean class="org.openmrs.module.ethbahmnicore.api.impl.CbhiLocationServiceImpl">
+            <bean class="org.openmrs.module.ethbahmnicore.cbhi.service.impl.CbhiLocationServiceImpl">
                 <property name="dao" ref="ethbahmnicore.CbhiLocationDao" />
             </bean>
         </property>
@@ -72,8 +72,60 @@
     <bean parent="serviceContext">
         <property name="moduleService">
             <list>
-                <value>org.openmrs.module.ethbahmnicore.api.CbhiLocationService</value>
+                <value>org.openmrs.module.ethbahmnicore.cbhi.service.CbhiLocationService</value>
                 <ref bean="ethbahmnicore.CbhiLocationService" />
+            </list>
+        </property>
+    </bean>
+
+    <!-- Registration Fee / MRU eligibility -->
+    <bean id="ethbahmnicore.RegistrationFeeProperties"
+          class="org.openmrs.module.ethbahmnicore.registrationfee.properties.RegistrationFeeProperties">
+        <property name="administrationService" ref="adminService" />
+    </bean>
+
+    <bean id="ethbahmnicore.OdooClient"
+          class="org.openmrs.module.ethbahmnicore.registrationfee.odoo.OdooClient">
+        <property name="properties" ref="ethbahmnicore.RegistrationFeeProperties" />
+    </bean>
+
+    <bean id="ethbahmnicore.OdooInvoiceRepository"
+          class="org.openmrs.module.ethbahmnicore.registrationfee.odoo.OdooInvoiceRepository">
+        <property name="odooClient" ref="ethbahmnicore.OdooClient" />
+        <property name="properties" ref="ethbahmnicore.RegistrationFeeProperties" />
+    </bean>
+
+    <bean id="ethbahmnicore.RegistrationFeeAllowList"
+          class="org.openmrs.module.ethbahmnicore.registrationfee.util.RegistrationFeeAllowList">
+        <property name="properties" ref="ethbahmnicore.RegistrationFeeProperties" />
+    </bean>
+
+    <bean id="ethbahmnicore.RegistrationFeeEligibilityService"
+          class="org.springframework.transaction.interceptor.TransactionProxyFactoryBean">
+        <property name="transactionManager">
+            <ref bean="transactionManager" />
+        </property>
+        <property name="target">
+            <bean class="org.openmrs.module.ethbahmnicore.registrationfee.service.impl.RegistrationFeeEligibilityServiceImpl">
+                <property name="properties" ref="ethbahmnicore.RegistrationFeeProperties" />
+                <property name="invoiceRepository" ref="ethbahmnicore.OdooInvoiceRepository" />
+                <property name="patientService" ref="patientService" />
+                <property name="allowList" ref="ethbahmnicore.RegistrationFeeAllowList" />
+            </bean>
+        </property>
+        <property name="preInterceptors">
+            <ref bean="serviceInterceptors" />
+        </property>
+        <property name="transactionAttributeSource">
+            <ref bean="transactionAttributeSource" />
+        </property>
+    </bean>
+
+    <bean parent="serviceContext">
+        <property name="moduleService">
+            <list>
+                <value>org.openmrs.module.ethbahmnicore.registrationfee.service.RegistrationFeeEligibilityService</value>
+                <ref bean="ethbahmnicore.RegistrationFeeEligibilityService" />
             </list>
         </property>
     </bean>
