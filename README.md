@@ -172,19 +172,38 @@ Invoice lookup axes: patient partner (`uuid` or `ref`) + shop `MRU` + `date_invo
 
 ---
 
-## Person attributes (CBHI registration contract)
+## Person attributes (credit registration contract)
 
-When PaymentMethod = Credit and Credit Information = CBHI, registration should capture CBHI geography as **person attributes** (string names must match exactly):
+When PaymentMethod = Credit, registration captures subtype-specific person attributes (string names must match exactly).
 
-| Attribute name   | Format           | Created by                          |
+### CBHI
+
+| Attribute name   | Format           | Notes                               |
 |------------------|------------------|-------------------------------------|
 | CBHI ID          | String           | Already in DB                       |
 | CBHIExpiryDate   | Date             | Already in DB                       |
-| CBHI Region      | String           | Liquibase in this module (if missing) |
-| CBHI Zone        | String           | Liquibase in this module (if missing) |
-| CBHI Woreda      | String           | Liquibase in this module (if missing) |
+| CBHI Region      | String           | Cascading autocomplete (required)   |
+| CBHI Zone        | String           | Cascading autocomplete (required)   |
+| CBHI Woreda      | String           | Cascading autocomplete (required)   |
+| CBHI Kebele      | String           | Free text (optional)                |
 
-Frontend should write selected display names onto the patient object, e.g. `patient["CBHI Region"]`, `patient["CBHI Zone"]`, `patient["CBHI Woreda"]`. Do **not** write these into Address Hierarchy / `person_address`.
+### SHI
+
+| Attribute name | Format | Notes |
+|----------------|--------|-------|
+| SHI ID         | String | Required |
+| SHI Region / Zone / Woreda | String | Cascading autocomplete (required) |
+| SHI Kebele     | String | Free text (required) |
+
+### Insurance
+
+| Attribute name | Format | Notes |
+|----------------|--------|-------|
+| Police Officer Name | String | Required |
+| Police Officer Phone | String | Required |
+| Insurance Region / Zone / Woreda | String | Cascading autocomplete (required) |
+
+Region/Zone/Woreda values reuse the CBHI location hierarchy API. Kebele is free text (not in the hierarchy CSV). Do **not** write these into Address Hierarchy / `person_address`.
 
 ## CBHI REST contract
 
