@@ -112,4 +112,251 @@
 		</insert>
 	</changeSet>
 
+	<changeSet id="ethbahmnicore-2026-09-18-cbhi-kebele-attr" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM person_attribute_type WHERE name = 'CBHI Kebele'</sqlCheck>
+		</preConditions>
+		<comment>Person attribute type: CBHI Kebele (optional free text)</comment>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="CBHI Kebele"/>
+			<column name="description" value="CBHI Kebele (optional; free text)"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e004"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-18-shi-attrs" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM person_attribute_type WHERE name = 'SHI ID'</sqlCheck>
+		</preConditions>
+		<comment>Person attribute types for SHI credit payment</comment>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="SHI ID"/>
+			<column name="description" value="Social Health Insurance ID"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e005"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="SHI Region"/>
+			<column name="description" value="SHI Region (separate from residential address)"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e006"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="SHI Zone"/>
+			<column name="description" value="SHI Zone (separate from residential address)"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e007"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="SHI Woreda"/>
+			<column name="description" value="SHI Woreda (separate from residential address)"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e008"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="SHI Kebele"/>
+			<column name="description" value="SHI Kebele (free text)"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e009"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-18-insurance-police-attrs" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM person_attribute_type WHERE name = 'Police Officer Name'</sqlCheck>
+		</preConditions>
+		<comment>Person attribute types for Insurance (police + geography)</comment>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="Police Officer Name"/>
+			<column name="description" value="Police officer name for Insurance credit payment"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e00a"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="Police Officer Phone"/>
+			<column name="description" value="Police officer phone for Insurance credit payment"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e00b"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="Insurance Region"/>
+			<column name="description" value="Insurance Region (separate from residential address)"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e00c"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="Insurance Zone"/>
+			<column name="description" value="Insurance Zone (separate from residential address)"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e00d"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+		<insert tableName="person_attribute_type">
+			<column name="name" value="Insurance Woreda"/>
+			<column name="description" value="Insurance Woreda (separate from residential address)"/>
+			<column name="format" value="java.lang.String"/>
+			<column name="searchable" valueBoolean="false"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e00e"/>
+			<column name="sort_weight" valueNumeric="0"/>
+		</insert>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-18-shi-credit-answer" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">
+				SELECT COUNT(*) FROM concept_name WHERE name = 'SHI' AND voided = 0 AND concept_name_type = 'FULLY_SPECIFIED'
+			</sqlCheck>
+		</preConditions>
+		<comment>Add SHI as Credit Information coded answer</comment>
+		<sql splitStatements="true" endDelimiter=";">
+			INSERT INTO concept (retired, short_name, description, form_text, datatype_id, class_id, is_set, creator, date_created, version, changed_by, date_changed, retired_by, date_retired, retire_reason, uuid)
+			VALUES (0, NULL, NULL, NULL, 4, 35, 0, 1, NOW(), NULL, NULL, NULL, NULL, NULL, NULL, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e020');
+
+			SET @shi_concept_id = (SELECT concept_id FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e020');
+
+			INSERT INTO concept_name (concept_id, name, locale, locale_preferred, creator, date_created, concept_name_type, voided, uuid)
+			VALUES (@shi_concept_id, 'SHI', 'en', 1, 1, NOW(), 'FULLY_SPECIFIED', 0, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e022');
+
+			SET @credit_info_id = (SELECT concept_id FROM concept WHERE uuid = '84f57f51-a74e-40b4-b84a-e6be412ba052');
+
+			INSERT INTO concept_answer (concept_id, answer_concept, answer_drug, creator, date_created, sort_weight, uuid)
+			VALUES (@credit_info_id, @shi_concept_id, NULL, 1, NOW(), 4, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e021');
+		</sql>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-18-wachemo-credit-companies" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">
+				SELECT COUNT(*) FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e030'
+			</sqlCheck>
+		</preConditions>
+		<comment>Replace Credit Companies answers with Wachemo facility list</comment>
+		<sql splitStatements="true" endDelimiter=";">
+			SET @credit_companies_id = (SELECT concept_id FROM concept WHERE uuid = '0dd14144-3ea5-43f1-9eb1-38dc2a4edb57');
+
+			DELETE FROM concept_answer WHERE concept_id = @credit_companies_id;
+
+			INSERT INTO concept (retired, short_name, description, form_text, datatype_id, class_id, is_set, creator, date_created, version, uuid)
+			VALUES
+			(0, NULL, NULL, NULL, 4, 35, 0, 1, NOW(), NULL, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e030'),
+			(0, NULL, NULL, NULL, 4, 35, 0, 1, NOW(), NULL, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e031'),
+			(0, NULL, NULL, NULL, 4, 35, 0, 1, NOW(), NULL, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e032'),
+			(0, NULL, NULL, NULL, 4, 35, 0, 1, NOW(), NULL, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e033'),
+			(0, NULL, NULL, NULL, 4, 35, 0, 1, NOW(), NULL, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e034'),
+			(0, NULL, NULL, NULL, 4, 35, 0, 1, NOW(), NULL, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e035'),
+			(0, NULL, NULL, NULL, 4, 35, 0, 1, NOW(), NULL, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e036'),
+			(0, NULL, NULL, NULL, 4, 35, 0, 1, NOW(), NULL, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e037'),
+			(0, NULL, NULL, NULL, 4, 35, 0, 1, NOW(), NULL, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e038');
+
+			INSERT INTO concept_name (concept_id, name, locale, locale_preferred, creator, date_created, concept_name_type, voided, uuid)
+			SELECT concept_id, 'Hosanna maremia', 'en', 1, 1, NOW(), 'FULLY_SPECIFIED', 0, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e040'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e030';
+			INSERT INTO concept_name (concept_id, name, locale, locale_preferred, creator, date_created, concept_name_type, voided, uuid)
+			SELECT concept_id, 'Geter Mengedoch balesiltan', 'en', 1, 1, NOW(), 'FULLY_SPECIFIED', 0, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e041'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e031';
+			INSERT INTO concept_name (concept_id, name, locale, locale_preferred, creator, date_created, concept_name_type, voided, uuid)
+			SELECT concept_id, 'Kalehiwot betekrstian', 'en', 1, 1, NOW(), 'FULLY_SPECIFIED', 0, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e042'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e032';
+			INSERT INTO concept_name (concept_id, name, locale, locale_preferred, creator, date_created, concept_name_type, voided, uuid)
+			SELECT concept_id, 'Muluwongel betekrstian', 'en', 1, 1, NOW(), 'FULLY_SPECIFIED', 0, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e043'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e033';
+			INSERT INTO concept_name (concept_id, name, locale, locale_preferred, creator, date_created, concept_name_type, voided, uuid)
+			SELECT concept_id, 'Meseretekristos betekrstian', 'en', 1, 1, NOW(), 'FULLY_SPECIFIED', 0, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e044'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e034';
+			INSERT INTO concept_name (concept_id, name, locale, locale_preferred, creator, date_created, concept_name_type, voided, uuid)
+			SELECT concept_id, 'Liyu hayl', 'en', 1, 1, NOW(), 'FULLY_SPECIFIED', 0, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e045'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e035';
+			INSERT INTO concept_name (concept_id, name, locale, locale_preferred, creator, date_created, concept_name_type, voided, uuid)
+			SELECT concept_id, 'Federal polis', 'en', 1, 1, NOW(), 'FULLY_SPECIFIED', 0, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e046'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e036';
+			INSERT INTO concept_name (concept_id, name, locale, locale_preferred, creator, date_created, concept_name_type, voided, uuid)
+			SELECT concept_id, 'Wachemo university student', 'en', 1, 1, NOW(), 'FULLY_SPECIFIED', 0, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e047'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e037';
+			INSERT INTO concept_name (concept_id, name, locale, locale_preferred, creator, date_created, concept_name_type, voided, uuid)
+			SELECT concept_id, 'Mebrat hayl', 'en', 1, 1, NOW(), 'FULLY_SPECIFIED', 0, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e048'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e038';
+
+			INSERT INTO concept_answer (concept_id, answer_concept, answer_drug, creator, date_created, sort_weight, uuid)
+			SELECT @credit_companies_id, concept_id, NULL, 1, NOW(), 1, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e050'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e030';
+			INSERT INTO concept_answer (concept_id, answer_concept, answer_drug, creator, date_created, sort_weight, uuid)
+			SELECT @credit_companies_id, concept_id, NULL, 1, NOW(), 2, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e051'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e031';
+			INSERT INTO concept_answer (concept_id, answer_concept, answer_drug, creator, date_created, sort_weight, uuid)
+			SELECT @credit_companies_id, concept_id, NULL, 1, NOW(), 3, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e052'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e032';
+			INSERT INTO concept_answer (concept_id, answer_concept, answer_drug, creator, date_created, sort_weight, uuid)
+			SELECT @credit_companies_id, concept_id, NULL, 1, NOW(), 4, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e053'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e033';
+			INSERT INTO concept_answer (concept_id, answer_concept, answer_drug, creator, date_created, sort_weight, uuid)
+			SELECT @credit_companies_id, concept_id, NULL, 1, NOW(), 5, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e054'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e034';
+			INSERT INTO concept_answer (concept_id, answer_concept, answer_drug, creator, date_created, sort_weight, uuid)
+			SELECT @credit_companies_id, concept_id, NULL, 1, NOW(), 6, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e055'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e035';
+			INSERT INTO concept_answer (concept_id, answer_concept, answer_drug, creator, date_created, sort_weight, uuid)
+			SELECT @credit_companies_id, concept_id, NULL, 1, NOW(), 7, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e056'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e036';
+			INSERT INTO concept_answer (concept_id, answer_concept, answer_drug, creator, date_created, sort_weight, uuid)
+			SELECT @credit_companies_id, concept_id, NULL, 1, NOW(), 8, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e057'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e037';
+			INSERT INTO concept_answer (concept_id, answer_concept, answer_drug, creator, date_created, sort_weight, uuid)
+			SELECT @credit_companies_id, concept_id, NULL, 1, NOW(), 9, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e058'
+			FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e038';
+		</sql>
+	</changeSet>
+
 </databaseChangeLog>
