@@ -359,4 +359,149 @@
 		</sql>
 	</changeSet>
 
+	<changeSet id="ethbahmnicore-2026-09-20-daily-bed-fee-task" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM scheduler_task_config WHERE schedulable_class = 'org.openmrs.module.ethbahmnicore.deposit.task.DailyBedFeeTask'</sqlCheck>
+		</preConditions>
+		<comment>Nightly task to create daily Bed Service orders for occupied IPD beds</comment>
+		<insert tableName="scheduler_task_config">
+			<column name="name" value="Daily IPD Bed Fee"/>
+			<column name="description" value="Creates one Bed Service order per occupied IPD patient per calendar day"/>
+			<column name="schedulable_class" value="org.openmrs.module.ethbahmnicore.deposit.task.DailyBedFeeTask"/>
+			<column name="start_time_pattern" value="MM/dd/yyyy HH:mm:ss"/>
+			<column name="start_time" valueDate="2026-09-20 01:00:00"/>
+			<column name="repeat_interval" valueNumeric="86400"/>
+			<column name="start_on_startup" valueBoolean="false"/>
+			<column name="started" valueBoolean="false"/>
+			<column name="created_by" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e0b1"/>
+		</insert>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-20-bed-service-order-type" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM order_type WHERE name = 'Bed Service'</sqlCheck>
+		</preConditions>
+		<comment>Order type for ward bed fees synced to Odoo IPD shop</comment>
+		<insert tableName="order_type">
+			<column name="name" value="Bed Service"/>
+			<column name="description" value="Daily and transfer ward bed charges"/>
+			<column name="creator" valueNumeric="1"/>
+			<column name="date_created" valueDate="NOW()"/>
+			<column name="retired" valueBoolean="false"/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e0b2"/>
+			<column name="java_class_name" value="org.openmrs.TestOrder"/>
+		</insert>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-21-enable-ipd-deposit-enforce" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="1">SELECT COUNT(*) FROM global_property WHERE property = 'ethbahmnicore.enforceIpdDeposit'</sqlCheck>
+		</preConditions>
+		<comment>Enable IPD deposit enforcement (UI already defaults enforceIpdDeposit true)</comment>
+		<update tableName="global_property">
+			<column name="property_value" value="true"/>
+			<where>property = 'ethbahmnicore.enforceIpdDeposit'</where>
+		</update>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-21-bed-service-concept-sql" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM global_property WHERE property = 'bahmni.sqlGet.getBedServiceConcept'</sqlCheck>
+		</preConditions>
+		<comment>Ward name → bed fee concept for IPD admit/transfer billing (atomfeed → Odoo IPD shop)</comment>
+		<insert tableName="global_property">
+			<column name="property" value="bahmni.sqlGet.getBedServiceConcept"/>
+			<column name="property_value"><![CDATA[SELECT c.uuid AS uuid, cn.name AS name
+FROM concept c
+JOIN concept_name cn ON cn.concept_id = c.concept_id
+  AND cn.concept_name_type = 'FULLY_SPECIFIED'
+  AND cn.locale = 'en'
+  AND cn.voided = 0
+WHERE c.retired = 0
+  AND cn.name = CASE
+    WHEN LOWER(TRIM(${name})) LIKE '%hdu%' OR LOWER(TRIM(${name})) LIKE '%icu%' OR LOWER(TRIM(${name})) LIKE '%first%'
+      THEN 'Bed patient first class +meal  procedure'
+    ELSE 'Bed patient standard+meal procedure'
+  END
+LIMIT 1;]]></column>
+			<column name="description" value="Returns bed fee concept uuid/name for a ward (${name}). Used by IPD admit/transfer to create Bed Service orders."/>
+			<column name="uuid" value="5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e0c1"/>
+		</insert>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-21-bed-services-list-sql" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="1">SELECT COUNT(*) FROM global_property WHERE property = 'bahmni.sqlGet.getBedServices' AND property_value LIKE '%WHERE false%'</sqlCheck>
+		</preConditions>
+		<comment>Replace stub getBedServices with real bed fee concepts for disposition ADMIT</comment>
+		<update tableName="global_property">
+			<column name="property_value"><![CDATA[SELECT c.uuid AS uuid, cn.name AS name
+FROM concept c
+JOIN concept_name cn ON cn.concept_id = c.concept_id
+  AND cn.concept_name_type = 'FULLY_SPECIFIED'
+  AND cn.locale = 'en'
+  AND cn.voided = 0
+WHERE c.retired = 0
+  AND cn.name IN (
+    'Bed patient standard+meal procedure',
+    'Bed patient first class +meal  procedure'
+  )
+ORDER BY cn.name;]]></column>
+			<where>property = 'bahmni.sqlGet.getBedServices'</where>
+		</update>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-21-bed-service-order-type-class-map" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM order_type_class_map m JOIN order_type ot ON ot.order_type_id = m.order_type_id WHERE ot.name = 'Bed Service'</sqlCheck>
+		</preConditions>
+		<comment>Map Bed Service order type to Misc Order class (Radiology/Procedure already taken by UNIQUE concept_class_id)</comment>
+		<sql>
+			INSERT INTO order_type_class_map (order_type_id, concept_class_id)
+			SELECT ot.order_type_id, cc.concept_class_id
+			FROM order_type ot
+			JOIN concept_class cc ON cc.name = 'Misc Order'
+			WHERE ot.name = 'Bed Service'
+			AND NOT EXISTS (
+			  SELECT 1 FROM order_type_class_map m
+			  WHERE m.order_type_id = ot.order_type_id AND m.concept_class_id = cc.concept_class_id
+			);
+		</sql>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-21-bed-fee-concepts-misc-order" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="1">SELECT COUNT(*) FROM concept_name cn JOIN concept c ON c.concept_id = cn.concept_id JOIN concept_class cc ON cc.concept_class_id = c.class_id WHERE cn.name = 'Bed patient standard+meal procedure' AND cn.voided = 0 AND cc.name = 'Radiology'</sqlCheck>
+		</preConditions>
+		<comment>Reclassify bed fee concepts as Misc Order so they can be ordered as Bed Service</comment>
+		<sql>
+			UPDATE concept c
+			JOIN concept_name cn ON cn.concept_id = c.concept_id
+			  AND cn.concept_name_type = 'FULLY_SPECIFIED'
+			  AND cn.locale = 'en'
+			  AND cn.voided = 0
+			JOIN concept_class misc ON misc.name = 'Misc Order'
+			SET c.class_id = misc.concept_class_id,
+			    c.changed_by = 1,
+			    c.date_changed = NOW()
+			WHERE cn.name IN (
+			  'Bed patient standard+meal procedure',
+			  'Bed patient first class +meal  procedure'
+			);
+		</sql>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-09-21-ipd-min-deposit-gp" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="1">SELECT COUNT(*) FROM global_property WHERE property = 'ethbahmnicore.ipd.minDepositAmount' AND (property_value = '0' OR property_value = '' OR property_value IS NULL)</sqlCheck>
+		</preConditions>
+		<comment>Align OpenMRS fallback min deposit with Odoo company default (5)</comment>
+		<update tableName="global_property">
+			<column name="property_value" value="5"/>
+			<where>property = 'ethbahmnicore.ipd.minDepositAmount'</where>
+		</update>
+	</changeSet>
+
 </databaseChangeLog>
