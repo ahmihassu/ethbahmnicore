@@ -32,6 +32,10 @@
 		<name>Ethio Bahmni Core Privilege</name>
 		<description>Allows managing Ethio Bahmni Core data including CBHI location import</description>
 	</privilege>
+	<privilege>
+		<name>Edit CBHI Expiry Date</name>
+		<description>Allows updating an already-set CBHI expiry date on patient registration</description>
+	</privilege>
 
 	<!-- Annotated entities (CbhiLocation) added to the core Hibernate session factory -->
 	<packagesWithMappedClasses>org.openmrs.module.ethbahmnicore</packagesWithMappedClasses>
@@ -45,6 +49,14 @@
 	<advice>
 		<point>org.openmrs.api.OrderService</point>
 		<class>org.openmrs.module.ethbahmnicore.registrationfee.advice.RegistrationFeeOrderAdvice</class>
+	</advice>
+	<advice>
+		<point>org.openmrs.api.EncounterService</point>
+		<class>org.openmrs.module.ethbahmnicore.deposit.advice.DepositEncounterAdvice</class>
+	</advice>
+	<advice>
+		<point>org.openmrs.api.OrderService</point>
+		<class>org.openmrs.module.ethbahmnicore.deposit.advice.DepositOrderAdvice</class>
 	</advice>
 
 	<!-- Non-secret registration-fee / Odoo connection settings (credentials via env vars) -->
@@ -92,6 +104,31 @@
 		<property>ethbahmnicore.registrationFee.allowedEncounterTypes</property>
 		<defaultValue>REG,Registration</defaultValue>
 		<description>Comma-separated encounter type names allowed without eligibility (billing flow). Bahmni uses REG.</description>
+	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.enforceIpdDeposit</property>
+		<defaultValue>true</defaultValue>
+		<description>When true, Cash IPD patients need sufficient Odoo deposit before admission and further orders</description>
+	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.ipd.minDepositAmount</property>
+		<defaultValue>0</defaultValue>
+		<description>Fallback minimum IPD deposit when Odoo company setting is unset</description>
+	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.ipd.bedOrderTypeName</property>
+		<defaultValue>Bed Service</defaultValue>
+		<description>OpenMRS order type used for daily ward bed fees</description>
+	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.ipd.depositAllowedOrderTypes</property>
+		<defaultValue>Bed Service,Registration Fee</defaultValue>
+		<description>Order types allowed without deposit balance check (system bed fees, registration)</description>
+	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.ipd.admissionEncounterTypes</property>
+		<defaultValue>ADMISSION,Admission</defaultValue>
+		<description>Encounter types that require minimum IPD deposit for Cash patients</description>
 	</globalProperty>
 	
 	<!-- Internationalization -->

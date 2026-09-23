@@ -75,6 +75,14 @@ public class OdooClient {
 		throw new OdooException("Unexpected search_read result type: " + (result == null ? "null" : result.getClass()));
 	}
 	
+	/**
+	 * Call a model method via execute_kw (e.g. res.partner.bahmni_ipd_deposit_available).
+	 */
+	public Object execute(String model, String method, List<Object> args) {
+		login();
+		return executeKw(model, method, args, new HashMap<String, Object>());
+	}
+	
 	private void login() {
 		if (uid != null) {
 			return;

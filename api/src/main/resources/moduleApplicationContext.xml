@@ -129,4 +129,45 @@
             </list>
         </property>
     </bean>
+
+    <!-- IPD deposit eligibility -->
+    <bean id="ethbahmnicore.DepositProperties"
+          class="org.openmrs.module.ethbahmnicore.deposit.properties.DepositProperties">
+        <property name="administrationService" ref="adminService" />
+        <property name="registrationFeeProperties" ref="ethbahmnicore.RegistrationFeeProperties" />
+    </bean>
+
+    <bean id="ethbahmnicore.OdooDepositRepository"
+          class="org.openmrs.module.ethbahmnicore.deposit.odoo.OdooDepositRepository">
+        <property name="odooClient" ref="ethbahmnicore.OdooClient" />
+    </bean>
+
+    <bean id="ethbahmnicore.DepositEligibilityService"
+          class="org.springframework.transaction.interceptor.TransactionProxyFactoryBean">
+        <property name="transactionManager">
+            <ref bean="transactionManager" />
+        </property>
+        <property name="target">
+            <bean class="org.openmrs.module.ethbahmnicore.deposit.service.impl.DepositEligibilityServiceImpl">
+                <property name="properties" ref="ethbahmnicore.DepositProperties" />
+                <property name="depositRepository" ref="ethbahmnicore.OdooDepositRepository" />
+                <property name="patientService" ref="patientService" />
+            </bean>
+        </property>
+        <property name="preInterceptors">
+            <ref bean="serviceInterceptors" />
+        </property>
+        <property name="transactionAttributeSource">
+            <ref bean="transactionAttributeSource" />
+        </property>
+    </bean>
+
+    <bean parent="serviceContext">
+        <property name="moduleService">
+            <list>
+                <value>org.openmrs.module.ethbahmnicore.deposit.service.DepositEligibilityService</value>
+                <ref bean="ethbahmnicore.DepositEligibilityService" />
+            </list>
+        </property>
+    </bean>
 </beans>
