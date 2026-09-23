@@ -236,8 +236,10 @@ Requires privilege: `Ethio Bahmni Core Privilege`.
 ## Regenerating CBHI CSV from Excel
 
 ```bash
-python3 scripts/excel_to_cbhi_csv.py /path/to/01-01-2017R.xlsx
+python3 scripts/excel_to_cbhi_csv.py "/path/to/FOR EMR.CBHI.xlsx"
 ```
+
+Defaults to `../../FOR EMR.CBHI.xlsx` (wachemo folder). Uses the **FOR EMR** sheet.
 
 ## What this module does / does not do
 
