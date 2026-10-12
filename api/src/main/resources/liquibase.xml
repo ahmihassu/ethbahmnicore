@@ -504,4 +504,159 @@ ORDER BY cn.name;]]></column>
 		</update>
 	</changeSet>
 
+	<changeSet id="ethbahmnicore-2026-10-10-fix-bed-service-java-class" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="1">SELECT COUNT(*) FROM order_type WHERE name = 'Bed Service' AND java_class_name = 'org.openmrs.TestOrder'</sqlCheck>
+		</preConditions>
+		<comment>Admit/disposition create plain Order; TestOrder java_class rejected them. Order accepts both UI Order and DailyBedFeeTask TestOrder.</comment>
+		<update tableName="order_type">
+			<column name="java_class_name" value="org.openmrs.Order"/>
+			<where>name = 'Bed Service' AND java_class_name = 'org.openmrs.TestOrder'</where>
+		</update>
+	</changeSet>
+
+	<!--
+	  OpenMRS Liquibase 1.9 XSD does not allow top-level <property>. Build a runtime
+	  ${name} placeholder with CONCAT(CHAR(36), '{name}') so Maven/Liquibase do not
+	  expand it to the module name.
+	-->
+	<changeSet id="ethbahmnicore-2026-10-10-fix-getBedServiceConcept-placeholder" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="1">SELECT COUNT(*) FROM global_property WHERE property = 'bahmni.sqlGet.getBedServiceConcept' AND property_value NOT LIKE CONCAT('%', CHAR(36), '{name}%')</sqlCheck>
+		</preConditions>
+		<comment>Restore ${name} placeholder in getBedServiceConcept (was replaced by Liquibase with module name)</comment>
+		<sql><![CDATA[
+UPDATE global_property
+SET property_value = CONCAT(
+  'SELECT c.uuid AS uuid, cn.name AS name\n',
+  'FROM concept c\n',
+  'JOIN concept_name cn ON cn.concept_id = c.concept_id\n',
+  '  AND cn.concept_name_type = ''FULLY_SPECIFIED''\n',
+  '  AND cn.locale = ''en''\n',
+  '  AND cn.voided = 0\n',
+  'WHERE c.retired = 0\n',
+  '  AND cn.name = CASE\n',
+  '    WHEN LOWER(TRIM(', CHAR(36), '{name})) LIKE ''%hdu%'' OR LOWER(TRIM(', CHAR(36), '{name})) LIKE ''%icu%'' OR LOWER(TRIM(', CHAR(36), '{name})) LIKE ''%first%''\n',
+  '      THEN ''Bed patient first class +meal  procedure''\n',
+  '    ELSE ''Bed patient standard+meal procedure''\n',
+  '  END\n',
+  'LIMIT 1;'
+),
+description = 'Returns bed fee concept uuid/name for a ward. Used by IPD admit/transfer to create Bed Service orders.'
+WHERE property = 'bahmni.sqlGet.getBedServiceConcept';
+		]]></sql>
+	</changeSet>
+
+	<!-- Normal Bed Charge (177 ETB) and ICU Bed Charge (318 ETB) — rates live on matching Odoo products. -->
+	<changeSet id="ethbahmnicore-2026-10-12-normal-icu-bed-fee-concepts" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM concept WHERE uuid = '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e0d1'</sqlCheck>
+		</preConditions>
+		<comment>Create Normal Bed Charge and ICU Bed Charge concepts (Misc Order) for daily IPD bed billing</comment>
+		<sql>
+			SET @misc_class := (SELECT concept_class_id FROM concept_class WHERE name = 'Misc Order' LIMIT 1);
+			SET @na_datatype := (SELECT concept_datatype_id FROM concept_datatype WHERE name = 'N/A' LIMIT 1);
+
+			INSERT INTO concept (retired, datatype_id, class_id, is_set, creator, date_created, uuid)
+			VALUES (0, @na_datatype, @misc_class, 0, 1, NOW(), '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e0d1');
+			SET @normal_id := LAST_INSERT_ID();
+			INSERT INTO concept_name (concept_id, name, locale, locale_preferred, creator, date_created, concept_name_type, voided, uuid)
+			VALUES (@normal_id, 'Normal Bed Charge', 'en', 1, 1, NOW(), 'FULLY_SPECIFIED', 0, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e0d3');
+
+			INSERT INTO concept (retired, datatype_id, class_id, is_set, creator, date_created, uuid)
+			VALUES (0, @na_datatype, @misc_class, 0, 1, NOW(), '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e0d2');
+			SET @icu_id := LAST_INSERT_ID();
+			INSERT INTO concept_name (concept_id, name, locale, locale_preferred, creator, date_created, concept_name_type, voided, uuid)
+			VALUES (@icu_id, 'ICU Bed Charge', 'en', 1, 1, NOW(), 'FULLY_SPECIFIED', 0, '5e3c8f91-4b2a-4d6e-9c1f-a1b2c3d4e0d4');
+		</sql>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-10-12-ward-to-normal-icu-bed-fee" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="1">SELECT COUNT(*) FROM global_property WHERE property = 'bahmni.sqlGet.getBedServiceConcept'</sqlCheck>
+		</preConditions>
+		<comment>Map wards: ICU/PICU/HDU → ICU Bed Charge (318); all other wards → Normal Bed Charge (177). ${name} must be unquoted so bahmnicore binds it as JDBC ?.</comment>
+		<sql><![CDATA[
+UPDATE global_property
+SET property_value = CONCAT(
+  'SELECT c.uuid AS uuid, cn.name AS name\n',
+  'FROM concept c\n',
+  'JOIN concept_name cn ON cn.concept_id = c.concept_id\n',
+  '  AND cn.concept_name_type = ''FULLY_SPECIFIED''\n',
+  '  AND cn.locale = ''en''\n',
+  '  AND cn.voided = 0\n',
+  'WHERE c.retired = 0\n',
+  '  AND cn.name = CASE\n',
+  '    WHEN LOWER(TRIM(', CHAR(36), '{name})) LIKE ''%icu%''\n',
+  '      OR LOWER(TRIM(', CHAR(36), '{name})) LIKE ''%hdu%''\n',
+  '      OR LOWER(TRIM(', CHAR(36), '{name})) LIKE ''%intensive%''\n',
+  '      THEN ''ICU Bed Charge''\n',
+  '    ELSE ''Normal Bed Charge''\n',
+  '  END\n',
+  'LIMIT 1;'
+),
+description = 'Ward to Normal Bed Charge (177) or ICU Bed Charge (318). Used by ADT after-noon admit and DailyBedFeeTask.'
+WHERE property = 'bahmni.sqlGet.getBedServiceConcept';
+		]]></sql>
+	</changeSet>
+
+	<!-- Fix quoted '${name}' from earlier deploy (caused JDBC "Parameter index out of range"). -->
+	<changeSet id="ethbahmnicore-2026-10-12-fix-bed-service-concept-unquoted-param" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="1">SELECT COUNT(*) FROM global_property WHERE property = 'bahmni.sqlGet.getBedServiceConcept' AND property_value LIKE CONCAT('%''', CHAR(36), '{name}''%')</sqlCheck>
+		</preConditions>
+		<comment>bahmnicore replaces ${name} with ?; it must not be inside quotes</comment>
+		<sql><![CDATA[
+UPDATE global_property
+SET property_value = CONCAT(
+  'SELECT c.uuid AS uuid, cn.name AS name\n',
+  'FROM concept c\n',
+  'JOIN concept_name cn ON cn.concept_id = c.concept_id\n',
+  '  AND cn.concept_name_type = ''FULLY_SPECIFIED''\n',
+  '  AND cn.locale = ''en''\n',
+  '  AND cn.voided = 0\n',
+  'WHERE c.retired = 0\n',
+  '  AND cn.name = CASE\n',
+  '    WHEN LOWER(TRIM(', CHAR(36), '{name})) LIKE ''%icu%''\n',
+  '      OR LOWER(TRIM(', CHAR(36), '{name})) LIKE ''%hdu%''\n',
+  '      OR LOWER(TRIM(', CHAR(36), '{name})) LIKE ''%intensive%''\n',
+  '      THEN ''ICU Bed Charge''\n',
+  '    ELSE ''Normal Bed Charge''\n',
+  '  END\n',
+  'LIMIT 1;'
+)
+WHERE property = 'bahmni.sqlGet.getBedServiceConcept';
+		]]></sql>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-10-12-disable-disposition-bed-services" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="1">SELECT COUNT(*) FROM global_property WHERE property = 'bahmni.sqlGet.getBedServices'</sqlCheck>
+		</preConditions>
+		<comment>Stop clinical disposition from auto-adding Bed Service orders; daily noon task + ADT after-noon admit own billing</comment>
+		<update tableName="global_property">
+			<column name="property_value"><![CDATA[SELECT c.uuid AS uuid, cn.name AS name
+FROM concept c
+JOIN concept_name cn ON cn.concept_id = c.concept_id
+WHERE false;]]></column>
+			<column name="description" value="Disabled: bed fees are created by DailyBedFeeTask (noon) and ADT admit after noon only."/>
+			<where>property = 'bahmni.sqlGet.getBedServices'</where>
+		</update>
+	</changeSet>
+
+	<changeSet id="ethbahmnicore-2026-10-12-daily-bed-fee-noon-schedule" author="ethbahmnicore">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="1">SELECT COUNT(*) FROM scheduler_task_config WHERE schedulable_class = 'org.openmrs.module.ethbahmnicore.deposit.task.DailyBedFeeTask'</sqlCheck>
+		</preConditions>
+		<comment>Run daily bed fee at noon so discharge before noon skips that calendar day</comment>
+		<update tableName="scheduler_task_config">
+			<column name="description" value="At noon: one Bed Service order per occupied IPD bed (skips discharged-before-noon). ICU=318, Normal=177 via Odoo products."/>
+			<column name="start_time" valueDate="2026-10-12 12:00:00"/>
+			<column name="repeat_interval" valueNumeric="86400"/>
+			<column name="start_on_startup" valueBoolean="true"/>
+			<column name="started" valueBoolean="true"/>
+			<where>schedulable_class = 'org.openmrs.module.ethbahmnicore.deposit.task.DailyBedFeeTask'</where>
+		</update>
+	</changeSet>
+
 </databaseChangeLog>
