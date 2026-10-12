@@ -35,13 +35,22 @@ import org.openmrs.module.ethbahmnicore.deposit.properties.DepositProperties;
 import org.openmrs.scheduler.tasks.AbstractTask;
 
 /**
- * Creates one Bed Service order per occupied IPD patient per calendar day. Relies on SQL global
- * property bahmni.sqlGet.getBedServiceConcept (ward → concept) via AdministrationService.executeSQL
- * when available; falls back to concept name match.
+ * Creates one Bed Service order per occupied IPD bed at noon each day.
+ * <p>
+ * Charge rule: every calendar day while admitted is charged. Patients discharged before noon are
+ * not present at noon, so that day is not charged. Afternoon admits are charged from ADT (see
+ * bahmniapps adtController); transfers do not create a bed order — the next noon run uses the
+ * patient's current ward rate.
+ * </p>
+ * Ward → rate via bahmni.sqlGet.getBedServiceConcept (Normal Bed Charge / ICU Bed Charge).
  */
 public class DailyBedFeeTask extends AbstractTask {
 	
 	private static final Log log = LogFactory.getLog(DailyBedFeeTask.class);
+	
+	public static final String CONCEPT_NORMAL = "Normal Bed Charge";
+	
+	public static final String CONCEPT_ICU = "ICU Bed Charge";
 	
 	@Override
 	public void execute() {
@@ -76,6 +85,7 @@ public class DailyBedFeeTask extends AbstractTask {
 			List<Visit> activeVisits = visitService.getVisits(null, null, null, null, null, null, null, null, null, false,
 			    false);
 			int created = 0;
+			int skippedNoBed = 0;
 			for (Visit visit : activeVisits) {
 				if (visit.getStopDatetime() != null) {
 					continue;
@@ -87,11 +97,16 @@ public class DailyBedFeeTask extends AbstractTask {
 				if (patient == null) {
 					continue;
 				}
+				String wardName = resolveWardName(patient);
+				if (wardName == null) {
+					// Not currently on a bed (discharged from bed or never assigned).
+					skippedNoBed++;
+					continue;
+				}
 				if (alreadyChargedToday(orderService, patient, bedOrderType, startOfDay)) {
 					continue;
 				}
 				
-				String wardName = resolveWardName(patient);
 				Concept bedConcept = resolveBedConcept(conceptService, wardName);
 				if (bedConcept == null) {
 					log.warn("DailyBedFeeTask: no bed concept for patient " + patient.getUuid() + " ward=" + wardName);
@@ -110,7 +125,7 @@ public class DailyBedFeeTask extends AbstractTask {
 				}
 				
 				Provider provider = firstProvider(providerService);
-				Order order = new org.openmrs.TestOrder();
+				Order order = new Order();
 				order.setPatient(patient);
 				order.setConcept(bedConcept);
 				order.setOrderType(bedOrderType);
@@ -118,14 +133,13 @@ public class DailyBedFeeTask extends AbstractTask {
 				order.setOrderer(provider);
 				order.setEncounter(encounter);
 				order.setDateActivated(new Date());
-				order.setCommentToFulfiller("Daily bed fee " + formatDay(startOfDay)
-				        + (wardName == null ? "" : " ward=" + wardName));
+				order.setCommentToFulfiller("Daily bed fee " + formatDay(startOfDay) + " ward=" + wardName);
 				
 				encounter.addOrder(order);
 				encounterService.saveEncounter(encounter);
 				created++;
 			}
-			log.info("DailyBedFeeTask created " + created + " bed fee orders");
+			log.info("DailyBedFeeTask created " + created + " bed fee orders (skipped no-bed=" + skippedNoBed + ")");
 		}
 		catch (Exception e) {
 			log.error("DailyBedFeeTask failed", e);
@@ -154,7 +168,10 @@ public class DailyBedFeeTask extends AbstractTask {
 		return false;
 	}
 	
-	private static String resolveWardName(Patient patient) {
+	/**
+	 * Active bed assignment ward (parent location of the bed's location).
+	 */
+	static String resolveWardName(Patient patient) {
 		try {
 			List<List<Object>> rows = Context.getAdministrationService().executeSQL(
 			    "SELECT pl.name FROM bed_patient_assignment_map bpam " + "JOIN bed b ON b.bed_id = bpam.bed_id "
@@ -172,33 +189,65 @@ public class DailyBedFeeTask extends AbstractTask {
 		return null;
 	}
 	
-	private static Concept resolveBedConcept(ConceptService conceptService, String wardName) {
-		if (wardName != null) {
-			try {
-				List<List<Object>> rows = Context.getAdministrationService().executeSQL(
-				    "SELECT c.uuid FROM concept_name cn " + "JOIN concept c ON c.concept_id = cn.concept_id "
-				            + "WHERE cn.name LIKE '%" + wardName.replace("'", "") + "%Bed%' "
-				            + "AND cn.locale = 'en' AND cn.voided = 0 LIMIT 1", true);
-				if (rows != null && !rows.isEmpty() && rows.get(0) != null && !rows.get(0).isEmpty()) {
-					Concept byUuid = conceptService.getConceptByUuid(String.valueOf(rows.get(0).get(0)));
-					if (byUuid != null) {
-						return byUuid;
-					}
-				}
-			}
-			catch (Exception e) {
-				log.debug("Ward bed concept SQL failed", e);
-			}
-			Concept byName = conceptService.getConceptByName(wardName + " Bed Charge");
-			if (byName != null) {
-				return byName;
-			}
+	static Concept resolveBedConcept(ConceptService conceptService, String wardName) {
+		Concept fromSql = resolveViaGetBedServiceConceptSql(conceptService, wardName);
+		if (fromSql != null) {
+			return fromSql;
+		}
+		String conceptName = isIcuWard(wardName) ? CONCEPT_ICU : CONCEPT_NORMAL;
+		Concept byName = conceptService.getConceptByName(conceptName);
+		if (byName != null) {
+			return byName;
 		}
 		Concept generic = conceptService.getConceptByName("Bed Charge");
 		if (generic == null) {
 			generic = conceptService.getConceptByName("Bed Service");
 		}
 		return generic;
+	}
+	
+	/**
+	 * Prefer the configured ward→concept SQL (same as ADT UI).
+	 */
+	private static Concept resolveViaGetBedServiceConceptSql(ConceptService conceptService, String wardName) {
+		if (wardName == null) {
+			return null;
+		}
+		try {
+			String sql = Context.getAdministrationService().getGlobalProperty("bahmni.sqlGet.getBedServiceConcept");
+			if (sql == null || sql.trim().isEmpty()) {
+				return null;
+			}
+			// GP uses unquoted ${name} so bahmnicore REST binds it as JDBC ?.
+			// executeSQL has no binders — inject a quoted literal (strip quotes to avoid injection).
+			String safeWard = wardName.replace("'", "");
+			String resolved = sql.replace("${name}", "'" + safeWard + "'");
+			List<List<Object>> rows = Context.getAdministrationService().executeSQL(resolved, true);
+			if (rows != null && !rows.isEmpty() && rows.get(0) != null && !rows.get(0).isEmpty()) {
+				Object uuidOrName = rows.get(0).get(0);
+				if (uuidOrName != null) {
+					Concept byUuid = conceptService.getConceptByUuid(String.valueOf(uuidOrName));
+					if (byUuid != null) {
+						return byUuid;
+					}
+				}
+				if (rows.get(0).size() > 1 && rows.get(0).get(1) != null) {
+					return conceptService.getConceptByName(String.valueOf(rows.get(0).get(1)));
+				}
+			}
+		}
+		catch (Exception e) {
+			log.debug("getBedServiceConcept SQL failed for ward=" + wardName, e);
+		}
+		return null;
+	}
+	
+	static boolean isIcuWard(String wardName) {
+		if (wardName == null) {
+			return false;
+		}
+		String w = wardName.toLowerCase(Locale.ENGLISH);
+		return w.contains("icu") || w.contains("hdu") || w.contains("intensive");
 	}
 	
 	private static Provider firstProvider(ProviderService providerService) {
