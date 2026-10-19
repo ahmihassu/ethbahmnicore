@@ -130,6 +130,11 @@
 		<defaultValue>ADMISSION,Admission</defaultValue>
 		<description>Encounter types that require minimum IPD deposit for Cash patients</description>
 	</globalProperty>
+	<globalProperty>
+		<property>ethbahmnicore.eapts.baseUrl</property>
+		<defaultValue>http://10.198.144.8</defaultValue>
+		<description>eAPTS base URL for dispensing-unit and stock lookups. Credentials are ETHBAHMNICORE_EAPTS_USER and ETHBAHMNICORE_EAPTS_PASSWORD (or APTS_USERNAME and APTS_PASSWORD).</description>
+	</globalProperty>
 	
 	<!-- Internationalization -->
 	<!-- All message codes should start with @MODULE_ID@.* -->

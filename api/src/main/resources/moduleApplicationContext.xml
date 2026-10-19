@@ -170,4 +170,15 @@
             </list>
         </property>
     </bean>
+
+    <!-- eAPTS stock lookup. Not a transactional service: the HTTP call must not hold a DB transaction. -->
+    <bean id="ethbahmnicore.EaptsProperties"
+          class="org.openmrs.module.ethbahmnicore.eapts.EaptsProperties">
+        <property name="administrationService" ref="adminService" />
+    </bean>
+
+    <bean id="ethbahmnicore.EaptsClient"
+          class="org.openmrs.module.ethbahmnicore.eapts.EaptsClient">
+        <property name="properties" ref="ethbahmnicore.EaptsProperties" />
+    </bean>
 </beans>
